@@ -1,4 +1,4 @@
-name: Attendify Planning CI Pipeline
+name: Attendify Planning CI Docker Pipeline
 
 on:
   push:
@@ -9,35 +9,28 @@ on:
       - main
 
 jobs:
-  ci:
-    name: Build and Test Attendify Planning
+  docker-ci:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies
+      - name: Build Docker image
         run: |
-          python -m pip install --upgrade pip
-          pip install -r planning/requirements.txt
+          docker build -t attendify-planning planning/
 
-      - name: Lint Python files with flake8
+      - name: Run Docker container
         run: |
-          pip install flake8
-          flake8 planning/ --count --select=E9,F63,F7,F82 --show-source --statistics
-          flake8 planning/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-
-      - name: Verify service runs (basic check)
-        run: |
-          python planning/app.py &
+          docker run -d -p 5000:5000 --name attendify-planning-container attendify-planning
           sleep 5
+
+      - name: Test API endpoint
+        run: |
           curl --request POST \
             --header "Content-Type: application/json" \
             --data '{"summary":"Test Event","start":"2025-03-22T09:00:00","end":"2025-03-22T10:00:00"}' \
             http://localhost:5000/create-event || exit 1
+
+      - name: Stop Docker container
+        run: docker stop attendify-planning-container
